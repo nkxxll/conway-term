@@ -93,9 +93,18 @@ impl Game {
     }
 
     fn print(&self) {
-        for line in self.state.state {
-            println!("{}", line.iter().collect::<String>());
-        }
+        println!(
+            "{}",
+            self.state
+                .state
+                .iter()
+                .map(|line| {
+                    let mut res = line.iter().collect::<String>();
+                    res.push('\n');
+                    res
+                })
+                .collect::<String>()
+        );
     }
     fn new(state: State) -> Self {
         Game { state }
