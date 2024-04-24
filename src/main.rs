@@ -27,8 +27,17 @@ fn clear_oct() {
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(short, long, default_value = "0", help = "number of rounds")]
+    #[arg(short, long, default_value_t = 0, help = "number of rounds")]
     rounds: usize,
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        requires = "rounds",
+        action,
+        help = "run silent"
+    )]
+    silent: bool,
 }
 
 #[derive(Debug)]
@@ -66,7 +75,7 @@ struct Game {
 }
 
 impl Game {
-    fn draw_game(&mut self) {
+    fn evaluate(&mut self) {
         let mut new_state: State = State::default();
         for row in 0..HEIGHT {
             for col in 0..WIDTH {
@@ -96,7 +105,6 @@ impl Game {
             }
         }
         self.state = new_state;
-        self.print();
     }
 
     fn print(&self) {
@@ -128,15 +136,21 @@ fn main() {
     let mut game = Game::new(state);
     if args.rounds == 0 {
         loop {
-            game.draw_game();
-            sleep_time();
             clear_hex();
+            game.evaluate();
+            game.print();
+            sleep_time();
         }
     } else {
-        for _ in 0..args.rounds {
-            game.draw_game();
-            sleep_time();
-            clear_hex();
+        for r in 0..args.rounds {
+            game.evaluate();
+            if !args.silent || r == (args.rounds - 1) {
+                clear_hex();
+                game.print();
+                if !args.silent {
+                    sleep_time();
+                }
+            }
         }
     }
 }
