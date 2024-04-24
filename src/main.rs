@@ -1,3 +1,4 @@
+use clap::Parser;
 use rand::random;
 use std::{thread, time::Duration};
 
@@ -22,6 +23,12 @@ fn clear_hex() {
 }
 fn clear_oct() {
     print!("{}", CLEAR_OCT);
+}
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(short, long, default_value = "0", help = "number of rounds")]
+    rounds: usize,
 }
 
 #[derive(Debug)]
@@ -116,11 +123,20 @@ fn sleep_time() {
 }
 
 fn main() {
+    let args = Cli::parse();
     let state = State::random();
     let mut game = Game::new(state);
-    loop {
-        game.draw_game();
-        sleep_time();
-        clear_hex();
+    if args.rounds == 0 {
+        loop {
+            game.draw_game();
+            sleep_time();
+            clear_hex();
+        }
+    } else {
+        for _ in 0..args.rounds {
+            game.draw_game();
+            sleep_time();
+            clear_hex();
+        }
     }
 }
