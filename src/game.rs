@@ -1,11 +1,11 @@
 use rand::random;
 use std::{thread, time::Duration};
 
-const HEIGHT: isize = 30;
-const WIDTH: isize = 100;
-pub const CLEAR_HEX: &str = "\x1Bc";
-pub const ENTER_ALT: &str = "\x1B[?1049h";
-pub const LEAVE_ALT: &str = "\x1B[?1049l";
+pub(crate) const HEIGHT: isize = 30;
+pub(crate) const WIDTH: isize = 100;
+pub(crate) const CLEAR_HEX: &str = "\x1Bc";
+pub(crate) const ENTER_ALT: &str = "\x1B[?1049h";
+pub(crate) const LEAVE_ALT: &str = "\x1B[?1049l";
 const SLEEP_TIME: u64 = 100;
 const DIRECTIONS: [(isize, isize); 8] = [
     (0, 1),
