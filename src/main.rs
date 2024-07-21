@@ -1,71 +1,79 @@
 use clap::Parser;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::process::exit;
 
 mod args;
+mod database;
 mod game;
 
 fn main() {
     // get cli args
     let args = args::Cli::parse();
-    // choose a random state
-    let state = game::State::random();
-    // create a game instance
-    let mut game_instance = game::Game::new(state);
-    game::print_esc_code(game::ENTER_ALT);
-    match args.rounds {
-        None => {
-            let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-            ctrlc::set_handler(move || {
-                // stopping the endless game with ctrl-c is expected so we exit with 0
-                tx.send(false).unwrap();
-            })
-            .expect("Error setting Ctrl-C handler");
-
-            // Following code does the actual work, and can be interrupted by pressing
-            // Ctrl-C. As an example: Let's wait a few seconds.
-            while rx.try_recv().unwrap_or(true) {
-                game::print_esc_code(game::CLEAR_HEX);
-                game_instance.evaluate();
-                game_instance.print();
-                game::sleep_time();
+    match args.command {
+        args::Command::Database(args) => {
+            match (args.list, args.get) {
+                (true, None) => {
+                    // todo this is a task for the database not the main file
+                    let dbconn = database::DatabaseConnection::new("games.sqlite");
+                    let list = dbconn.list_games();
+                    println!("id width height rounds peek");
+                    for entry in list {
+                        let first_line: String =
+                            entry.data.into_iter().take(20).map(|x| x as char).collect();
+                        println!(
+                            "{} {} {} {} |{}|",
+                            entry.id.unwrap(),
+                            entry.width,
+                            entry.height,
+                            entry.rounds,
+                            first_line
+                        );
+                    }
+                    exit(1)
+                }
+                (false, Some(index)) => {
+                    let dbconn = database::DatabaseConnection::new("games.sqlite");
+                    let game = dbconn.get_game_by_idx(index);
+                    let state: game::State = game::State::new(
+                        game.data
+                            .chunks(game.width)
+                            .map(|x| x.iter().map(|y| *y as char).collect::<Vec<char>>())
+                            .collect::<Vec<Vec<char>>>(),
+                        game.width.try_into().unwrap(),
+                        game.height.try_into().unwrap(),
+                    );
+                    game::Game::run(state, false, Some(game.rounds));
+                }
+                _ => println!("Error: exactly one of --list or --get must be provided."),
             }
-            game::print_esc_code(game::LEAVE_ALT);
-            game_instance.print();
         }
-        Some(rounds) => {
-            match args.silent {
-                // if silent we can evaluate the game state after n rounds without printing
-                true => {
-                    for _ in 0..rounds {
-                        game_instance.evaluate();
+        args::Command::Play(args) => {
+            // choose a random state
+            let state = game::State::random();
+            if args.based {
+                let dbgs = database::DatabaseGameState::new(
+                    game::WIDTH as usize,
+                    game::HEIGHT as usize,
+                    args.rounds.unwrap(),
+                    state
+                        .state
+                        .iter()
+                        .flatten()
+                        .map(|&x| x as u8)
+                        .collect::<Vec<u8>>(),
+                );
+                let dbconn = database::DatabaseConnection::new("games.sqlite");
+                dbconn.create_tables();
+                // todo: catch the error here
+                let res = dbconn.insert_game(dbgs);
+                match res {
+                    Ok(_) => (),
+                    Err(e) => {
+                        panic!("error {:?}", e)
                     }
-                    game_instance.print()
-                }
-                false => {
-                    let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-                    ctrlc::set_handler(move || {
-                        tx.send(false).unwrap();
-                    })
-                    .expect("Error setting Ctrl-C handler");
-
-                    // Following code does the actual work, and can be interrupted by pressing
-                    // Ctrl-C. As an example: Let's wait a few seconds.
-                    game::print_esc_code(game::ENTER_ALT);
-                    for _ in 0..rounds {
-                        game_instance.evaluate();
-                        game_instance.print();
-                        game::sleep_time();
-                        game::print_esc_code(game::CLEAR_HEX);
-                        if !rx.try_recv().unwrap_or(true) {
-                            break;
-                        }
-                    }
-                    game::print_esc_code(game::LEAVE_ALT);
-                    // print the final state again
-                    game_instance.print();
                 }
             }
+            // create a game instance
+            game::Game::run(state, args.silent, args.rounds);
         }
     }
 }
