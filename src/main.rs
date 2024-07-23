@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::process::exit;
+use std::{env, process::exit};
 
 mod args;
 mod database;
@@ -9,12 +9,13 @@ mod rle;
 fn main() {
     // get cli args
     let args = args::Cli::parse();
+    let db_name = env::var("TEST_DATABASE").unwrap_or("games.sqlite".to_string());
     match args.command {
         args::Command::Database(args) => {
             match (args.list, args.get) {
                 (true, None) => {
                     // todo this is a task for the database not the main file
-                    let dbconn = database::DatabaseConnection::new("games.sqlite");
+                    let dbconn = database::DatabaseConnection::new(&db_name);
                     let list = dbconn.list_games();
                     println!("id width height rounds peek");
                     for entry in list {
@@ -33,7 +34,7 @@ fn main() {
                 }
                 // get game from database
                 (false, Some(index)) => {
-                    let dbconn = database::DatabaseConnection::new("games.sqlite");
+                    let dbconn = database::DatabaseConnection::new(&db_name);
                     let game = dbconn.get_game_by_idx(index);
                     let state: game::State = rle::state_from_rle(
                         game.data,
@@ -56,7 +57,7 @@ fn main() {
                     args.rounds.unwrap(),
                     rle::state_to_rle(&state),
                 );
-                let dbconn = database::DatabaseConnection::new("games.sqlite");
+                let dbconn = database::DatabaseConnection::new(&db_name);
                 dbconn.create_tables();
                 // todo: catch the error here
                 let res = dbconn.insert_game(dbgs);
