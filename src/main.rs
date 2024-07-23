@@ -4,6 +4,7 @@ use std::process::exit;
 mod args;
 mod database;
 mod game;
+mod rle;
 
 fn main() {
     // get cli args
@@ -30,14 +31,12 @@ fn main() {
                     }
                     exit(1)
                 }
+                // get game from database
                 (false, Some(index)) => {
                     let dbconn = database::DatabaseConnection::new("games.sqlite");
                     let game = dbconn.get_game_by_idx(index);
-                    let state: game::State = game::State::new(
-                        game.data
-                            .chunks(game.width)
-                            .map(|x| x.iter().map(|y| *y as char).collect::<Vec<char>>())
-                            .collect::<Vec<Vec<char>>>(),
+                    let state: game::State = rle::state_from_rle(
+                        game.data,
                         game.width.try_into().unwrap(),
                         game.height.try_into().unwrap(),
                     );
@@ -49,17 +48,13 @@ fn main() {
         args::Command::Play(args) => {
             // choose a random state
             let state = game::State::random();
+            // save a game
             if args.based {
                 let dbgs = database::DatabaseGameState::new(
                     game::WIDTH as usize,
                     game::HEIGHT as usize,
                     args.rounds.unwrap(),
-                    state
-                        .state
-                        .iter()
-                        .flatten()
-                        .map(|&x| x as u8)
-                        .collect::<Vec<u8>>(),
+                    rle::state_to_rle(&state),
                 );
                 let dbconn = database::DatabaseConnection::new("games.sqlite");
                 dbconn.create_tables();

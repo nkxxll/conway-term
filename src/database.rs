@@ -110,6 +110,6 @@ impl DatabaseConnection {
                 })
             })
             .unwrap();
-        dbg!("after stmt");
+        person_iter.next().unwrap().unwrap()
     }
 }
